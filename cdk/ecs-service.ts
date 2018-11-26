@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { VpcNetworkRef } from '@aws-cdk/aws-ec2';
+import { VpcNetworkProvider } from '@aws-cdk/aws-ec2';
 import { RepositoryRef } from '@aws-cdk/aws-ecr';
 import { Cluster, ContainerImage, LoadBalancedFargateService } from '@aws-cdk/aws-ecs';
 import cdk = require('@aws-cdk/cdk');
@@ -8,9 +8,12 @@ class TriviaBackendStack extends cdk.Stack {
   constructor(parent: cdk.App, name: string, props: cdk.StackProps) {
     super(parent, name, props);
 
-    // Reference existing network infrastructure
-    const vpc = VpcNetworkRef.importFromContext(this, 'VPC', { vpcName: 'TriviaBackendTest/VPC' });
-    const cluster = new Cluster(this, 'Cluster', { vpc });
+    // Reference existing network and cluster infrastructure
+    const cluster = Cluster.import(this, 'Cluster', {
+      clusterName: 'default',
+      vpc: new VpcNetworkProvider(this, { isDefault: true }).vpcProps,
+      securityGroups: []
+    });
 
     // Reference Docker image
     const repoName = (process.env.IMAGE_REPO_NAME) ? process.env.IMAGE_REPO_NAME : 'reinvent-trivia-backend';
@@ -27,7 +30,8 @@ class TriviaBackendStack extends cdk.Stack {
     // Create Fargate service + load balancer
     new LoadBalancedFargateService(this, 'Service', {
       cluster,
-      image
+      image,
+      publicTasks: true
     });
   }
 }
